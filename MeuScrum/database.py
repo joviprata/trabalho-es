@@ -157,4 +157,48 @@ def update_datafim_tarefa(tarefa,datafim):
     comandoSQL(f"UPDATE tb_Tarefa SET DataFim = '{datafim}' WHERE Tarefa_id = '{tarefa}'")
     return
 
-#criar_usuario('05869895103','jh','ronaldomail','123')
+def get_user(cpf):
+    return comandoSQL(f"SELECT * FROM tb_usuario WHERE CPF = '{cpf}'")
+
+def get_projeto(id):
+    return comandoSQL(f"SELECT * FROM tb_projeto WHERE Proj_id = '{id}'")
+
+def get_backlogprod(id):
+    return comandoSQL(f"SELECT * FROM tb_backlogproduto WHERE BP_id = '{id}'")
+
+def get_sprint(id):
+    return comandoSQL(f"SELECT * FROM tb_sprint WHERE Sprint_id = '{id}'")
+
+def get_backlogsprint(id):
+    return comandoSQL(f"SELECT * FROM tb_backlogsprint WHERE BS_id = '{id}'")
+
+def get_planosprint(id):
+    return comandoSQL(f"SELECT * FROM tb_planosprint WHERE PS_id = '{id}'")
+
+def get_tarefas(planosprint):
+    return comandoSQL(f"SELECT * FROM tb_tarefa WHERE planosprint = '{planosprint}'")
+
+def get_backlogprod_userstories(bp_id):
+    return comandoSQL(f"SELECT * FROM tb_userstory WHERE backlogprod = '{bp_id}'")
+
+def get_backlogsprint_userstories(bs_id):
+    return comandoSQL(f"SELECT * FROM tb_userstory WHERE backlogsprint = '{bs_id}'")
+
+def get_userstory(id):
+    return comandoSQL(f"SELECT * FROM tb_userstory WHERE US_id = '{id}'")
+
+def delete_userstory(id):
+    comandoSQL(f"DELETE FROM tb_pessoa WHERE cpf = '{id}'")
+    return
+
+def delete_backlogprod(id):
+    comandoSQL(f"DELETE FROM tb_backlogproduto WHERE BP_id = '{id}'")
+    return
+
+def delete_backlogsprint(id):
+    comandoSQL(f"DELETE FROM tb_backlogsprint WHERE BS_id = '{id}'")
+    return
+
+def delete_planoprint(id):
+    comandoSQL(f"DELETE FROM tb_planosprint WHERE PS_id = '{id}'")
+    return
