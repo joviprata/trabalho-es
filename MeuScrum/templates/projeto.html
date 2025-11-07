@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Projeto - MeuScrum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo">
+            <h2>MeuScrum</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
+                ⚙️
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
+                🏠
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
+                🚪
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h1 id="project-name">Carregando...</h1>
+                    <p id="project-dates" style="color: var(--text-light); margin-top: 0.5rem;"></p>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <span id="project-status" class="project-status"></span>
+                    <button class="btn btn-secondary" onclick="window.location.href='/backlog/' + currentProjectId">Backlog de Produto</button>
+                    <button class="btn btn-primary" onclick="openNewSprintModal()">+ Nova Sprint</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-card">
+            <h2>Sprints</h2>
+            <div id="sprints-container" style="margin-top: 1.5rem;">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Nova Sprint -->
+    <div id="newSprintModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nova Sprint</h2>
+                <button class="modal-close" onclick="closeNewSprintModal()">&times;</button>
+            </div>
+            <form id="newSprintForm">
+                <div class="form-group">
+                    <label for="sprint-titulo">Título da Sprint</label>
+                    <input type="text" id="sprint-titulo" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="sprint-datainicio">Data de Início</label>
+                    <input type="date" id="sprint-datainicio" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="sprint-datafim">Data de Término</label>
+                    <input type="date" id="sprint-datafim" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="sprint-status">Status</label>
+                    <select id="sprint-status" class="form-control">
+                        <option value="Planejada">Planejada</option>
+                        <option value="Em Andamento">Em Andamento</option>
+                        <option value="Concluída">Concluída</option>
+                        <option value="Cancelada">Cancelada</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Criar Sprint</button>
+                    <button type="button" class="btn btn-outline" onclick="closeNewSprintModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        let currentProjectId = {{ proj_id }};
+        
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function loadProject() {
+            try {
+                const response = await fetch(`/api/projeto/${currentProjectId}`);
+                const data = await response.json();
+                
+                if (data.projeto) {
+                    const proj = data.projeto;
+                    document.getElementById('project-name').textContent = proj.nome;
+                    document.getElementById('project-dates').textContent = 
+                        `Início: ${new Date(proj.datainicio).toLocaleDateString('pt-BR')}${proj.datafim ? ' | Término: ' + new Date(proj.datafim).toLocaleDateString('pt-BR') : ''}`;
+                    document.getElementById('project-status').textContent = proj.status;
+                    document.getElementById('project-status').className = `project-status status-${getStatusClass(proj.status)}`;
+                    
+                    if (data.backlog) {
+                        document.querySelector('button[onclick*="backlog"]').setAttribute('onclick', `window.location.href='/backlog/${data.backlog.bp_id}'`);
+                    }
+                }
+                
+                if (data.sprints && data.sprints.length > 0) {
+                    const container = document.getElementById('sprints-container');
+                    container.innerHTML = data.sprints.map(sprint => `
+                        <div class="project-card" onclick="window.location.href='/sprint/${sprint.sprint_id}'">
+                            <h3>${sprint.titulo}</h3>
+                            <p>${new Date(sprint.datainicio).toLocaleDateString('pt-BR')} - ${new Date(sprint.datafim).toLocaleDateString('pt-BR')}</p>
+                            <div class="project-meta">
+                                <span class="project-status status-${getStatusClass(sprint.status)}">${sprint.status}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('sprints-container').innerHTML = 
+                        '<p style="text-align: center; color: var(--text-light);">Nenhuma sprint encontrada. Crie sua primeira sprint!</p>';
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar projeto', 'error');
+            }
+        }
+        
+        function getStatusClass(status) {
+            if (status === 'Concluída' || status === 'Concluído') return 'completed';
+            if (status === 'Cancelada' || status === 'Pausado') return 'paused';
+            return 'active';
+        }
+        
+        function openNewSprintModal() {
+            document.getElementById('newSprintModal').classList.add('active');
+        }
+        
+        function closeNewSprintModal() {
+            document.getElementById('newSprintModal').classList.remove('active');
+            document.getElementById('newSprintForm').reset();
+        }
+        
+        document.getElementById('newSprintForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('sprint-titulo').value;
+            const datainicio = document.getElementById('sprint-datainicio').value;
+            const datafim = document.getElementById('sprint-datafim').value;
+            const status = document.getElementById('sprint-status').value;
+            
+            try {
+                const response = await fetch('/api/sprint', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ projeto: currentProjectId, titulo, datainicio, datafim, status })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeNewSprintModal();
+                    showAlert('Sprint criada com sucesso!', 'success');
+                    loadProject();
+                } else {
+                    showAlert(data.message || 'Erro ao criar sprint', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        });
+        
+        document.getElementById('newSprintModal').addEventListener('click', (e) => {
+            if (e.target.id === 'newSprintModal') {
+                closeNewSprintModal();
+            }
+        });
+        
+        loadProject();
+    </script>
+</body>
+</html>
+

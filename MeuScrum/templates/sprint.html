@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sprint - MeuScrum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo">
+            <h2>MeuScrum</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
+                ⚙️
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
+                🏠
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
+                🚪
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <div>
+                    <h1 id="sprint-title">Carregando...</h1>
+                    <p id="sprint-dates" style="color: var(--text-light); margin-top: 0.5rem;"></p>
+                </div>
+                <div style="display: flex; gap: 1rem; align-items: center;">
+                    <span id="sprint-status" class="project-status"></span>
+                    <button class="btn btn-primary" onclick="openPlanoSprint()">Plano de Sprint</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="content-card">
+            <h2>Backlog da Sprint</h2>
+            <div id="sprint-backlog-container" class="userstories-list" style="margin-top: 1.5rem;">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentSprintId = {{ sprint_id }};
+        let currentBacklogId = null;
+        let currentPlanoId = null;
+        let currentSprintData = null;
+        
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function loadSprint() {
+            try {
+                const response = await fetch(`/api/sprint/${currentSprintId}`);
+                const data = await response.json();
+                currentSprintData = data;
+                
+                if (data.sprint) {
+                    const sprint = data.sprint;
+                    document.getElementById('sprint-title').textContent = sprint.titulo;
+                    document.getElementById('sprint-dates').textContent = 
+                        `${new Date(sprint.datainicio).toLocaleDateString('pt-BR')} - ${new Date(sprint.datafim).toLocaleDateString('pt-BR')}`;
+                    document.getElementById('sprint-status').textContent = sprint.status;
+                    document.getElementById('sprint-status').className = `project-status status-${getStatusClass(sprint.status)}`;
+                }
+                
+                if (data.backlog) {
+                    currentBacklogId = data.backlog.bs_id;
+                }
+                
+                if (data.plano) {
+                    currentPlanoId = data.plano.ps_id;
+                } else {
+                    // Plano will be created when user clicks the button
+                }
+                
+                if (data.userstories && data.userstories.length > 0) {
+                    const container = document.getElementById('sprint-backlog-container');
+                    container.innerHTML = data.userstories.map(us => `
+                        <div class="userstory-card">
+                            <div class="userstory-header">
+                                <div class="userstory-title">${us.titulo}</div>
+                                <span class="priority-badge priority-${us.prioridade.toLowerCase()}">${us.prioridade}</span>
+                            </div>
+                            <p style="color: var(--text-light); margin-top: 0.5rem;">${us.descricao}</p>
+                            <div style="display: flex; justify-content: space-between; margin-top: 0.75rem; font-size: 0.9rem;">
+                                <span>Status: ${us.status}</span>
+                                <span>${us.responsavel ? 'Responsável: ' + us.responsavel : 'Sem responsável'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('sprint-backlog-container').innerHTML = 
+                        '<p style="text-align: center; color: var(--text-light);">Nenhuma user story no backlog da sprint.</p>';
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar sprint', 'error');
+            }
+        }
+        
+        function getStatusClass(status) {
+            if (status === 'Concluída' || status === 'Concluído') return 'completed';
+            if (status === 'Cancelada' || status === 'Pausado') return 'paused';
+            return 'active';
+        }
+        
+        async function openPlanoSprint() {
+            if (currentPlanoId) {
+                window.location.href = `/plano-sprint/${currentPlanoId}`;
+            } else {
+                // Create plano-sprint if it doesn't exist
+                try {
+                    const response = await fetch('/api/plano-sprint', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            sprint: currentSprintId, 
+                            objetivo: '', 
+                            trabalho: '', 
+                            equipe: '', 
+                            saida: '' 
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success && data.plano) {
+                        currentPlanoId = data.plano.ps_id;
+                        window.location.href = `/plano-sprint/${currentPlanoId}`;
+                    } else {
+                        showAlert(data.message || 'Erro ao criar plano de sprint', 'error');
+                    }
+                } catch (error) {
+                    showAlert('Erro ao conectar com o servidor', 'error');
+                }
+            }
+        }
+        
+        loadSprint();
+    </script>
+</body>
+</html>
+

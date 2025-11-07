@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plano de Sprint - MeuScrum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo">
+            <h2>MeuScrum</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
+                ⚙️
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
+                🏠
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
+                🚪
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1>Plano de Sprint</h1>
+                <button class="btn btn-primary" onclick="savePlano()">Salvar Plano</button>
+            </div>
+            
+            <div class="form-group">
+                <label for="plano-objetivo">Objetivo da Sprint</label>
+                <textarea id="plano-objetivo" class="form-control" rows="3" placeholder="Qual o objetivo desta sprint?"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="plano-trabalho">Trabalho Planejado</label>
+                <textarea id="plano-trabalho" class="form-control" rows="4" placeholder="Descreva o trabalho planejado para esta sprint"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="plano-equipe">Equipe</label>
+                <textarea id="plano-equipe" class="form-control" rows="3" placeholder="Membros da equipe envolvidos nesta sprint"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="plano-saida">Saída Esperada</label>
+                <textarea id="plano-saida" class="form-control" rows="3" placeholder="O que será entregue ao final desta sprint?"></textarea>
+            </div>
+        </div>
+        
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>Tarefas</h2>
+                <button class="btn btn-primary" onclick="openNewTarefaModal()">+ Nova Tarefa</button>
+            </div>
+            
+            <div id="tarefas-container" class="userstories-list">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Nova Tarefa -->
+    <div id="newTarefaModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nova Tarefa</h2>
+                <button class="modal-close" onclick="closeNewTarefaModal()">&times;</button>
+            </div>
+            <form id="newTarefaForm">
+                <div class="form-group">
+                    <label for="tarefa-descricao">Descrição</label>
+                    <textarea id="tarefa-descricao" class="form-control" rows="3" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="tarefa-status">Status</label>
+                    <select id="tarefa-status" class="form-control">
+                        <option value="A fazer">A fazer</option>
+                        <option value="Em progresso">Em progresso</option>
+                        <option value="Concluída">Concluída</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Criar Tarefa</button>
+                    <button type="button" class="btn btn-outline" onclick="closeNewTarefaModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        let currentPlanoId = {{ ps_id }};
+        let currentSprintId = null;
+        
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function loadPlano() {
+            try {
+                const response = await fetch(`/api/planosprint/${currentPlanoId}`);
+                if (!response.ok) {
+                    showAlert('Plano não encontrado', 'error');
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.plano) {
+                    const plano = data.plano;
+                    document.getElementById('plano-objetivo').value = plano.objetivo || '';
+                    document.getElementById('plano-trabalho').value = plano.trabalho || '';
+                    document.getElementById('plano-equipe').value = plano.equipe || '';
+                    document.getElementById('plano-saida').value = plano.saida || '';
+                    currentSprintId = plano.sprint;
+                }
+                
+                if (data.tarefas && data.tarefas.length > 0) {
+                    const container = document.getElementById('tarefas-container');
+                    container.innerHTML = data.tarefas.map(tarefa => `
+                        <div class="tarefa-card">
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div style="flex: 1;">
+                                    <p>${tarefa.descricao}</p>
+                                    <div style="display: flex; gap: 1rem; margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-light);">
+                                        <span>Status: ${tarefa.status}</span>
+                                        <span>Criada em: ${new Date(tarefa.datacriacao).toLocaleDateString('pt-BR')}</span>
+                                        ${tarefa.datafim ? `<span>Concluída em: ${new Date(tarefa.datafim).toLocaleDateString('pt-BR')}</span>` : ''}
+                                    </div>
+                                </div>
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="updateTarefaStatus(${tarefa.tarefa_id}, '${tarefa.status}')">
+                                        ${tarefa.status === 'Concluída' ? 'Reabrir' : 'Concluir'}
+                                    </button>
+                                    <button class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="deleteTarefa(${tarefa.tarefa_id})">Excluir</button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    document.getElementById('tarefas-container').innerHTML = 
+                        '<p style="text-align: center; color: var(--text-light);">Nenhuma tarefa encontrada. Crie sua primeira tarefa!</p>';
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar plano', 'error');
+            }
+        }
+        
+        async function savePlano() {
+            const objetivo = document.getElementById('plano-objetivo').value;
+            const trabalho = document.getElementById('plano-trabalho').value;
+            const equipe = document.getElementById('plano-equipe').value;
+            const saida = document.getElementById('plano-saida').value;
+            
+            try {
+                const response = await fetch(`/api/plano-sprint/${currentPlanoId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ objetivo, trabalho, equipe, saida })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Plano salvo com sucesso!', 'success');
+                } else {
+                    showAlert(data.message || 'Erro ao salvar plano', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+        
+        function openNewTarefaModal() {
+            document.getElementById('newTarefaModal').classList.add('active');
+        }
+        
+        function closeNewTarefaModal() {
+            document.getElementById('newTarefaModal').classList.remove('active');
+            document.getElementById('newTarefaForm').reset();
+        }
+        
+        document.getElementById('newTarefaForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const descricao = document.getElementById('tarefa-descricao').value;
+            const status = document.getElementById('tarefa-status').value;
+            
+            try {
+                const response = await fetch('/api/tarefa', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ planosprint: currentPlanoId, descricao, status })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeNewTarefaModal();
+                    showAlert('Tarefa criada com sucesso!', 'success');
+                    loadPlano();
+                } else {
+                    showAlert(data.message || 'Erro ao criar tarefa', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        });
+        
+        async function updateTarefaStatus(tarefaId, currentStatus) {
+            const newStatus = currentStatus === 'Concluída' ? 'A fazer' : 'Concluída';
+            const datafim = newStatus === 'Concluída' ? new Date().toISOString().split('T')[0] : null;
+            
+            try {
+                const response = await fetch(`/api/tarefa/${tarefaId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ status: newStatus, datafim })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Tarefa atualizada com sucesso!', 'success');
+                    loadPlano();
+                } else {
+                    showAlert(data.message || 'Erro ao atualizar tarefa', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+        
+        async function deleteTarefa(tarefaId) {
+            if (!confirm('Tem certeza que deseja excluir esta tarefa?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/tarefa/${tarefaId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Tarefa excluída com sucesso!', 'success');
+                    loadPlano();
+                } else {
+                    showAlert(data.message || 'Erro ao excluir tarefa', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+        
+        document.getElementById('newTarefaModal').addEventListener('click', (e) => {
+            if (e.target.id === 'newTarefaModal') {
+                closeNewTarefaModal();
+            }
+        });
+        
+        loadPlano();
+    </script>
+</body>
+</html>
+
