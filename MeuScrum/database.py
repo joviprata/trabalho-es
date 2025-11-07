@@ -72,9 +72,9 @@ def criar_backlogProduto(projeto, titulo):
     return result['bp_id'] if result else None
 
 def criar_userStory(backlogprod,criador,titulo,desc,prioridade,status):
-    result = comandoSQL("""INSERT INTO tb_userstory (BacklogProd, CriadoPor, Titulo, Descricao, Prioridade, Status, DataCriado) VALUES 
-               (%s, %s, %s, %s, %s, %s, CURRENT_DATE) RETURNING US_id""", 
-               (backlogprod, criador, titulo, desc, prioridade, status))
+    result = comandoSQL("""INSERT INTO tb_userstory (BacklogProd, BacklogSprint, CriadoPor, Titulo, Descricao, Prioridade, Status, DataCriado) VALUES 
+               (%s, %s, %s, %s, %s, %s, %s, CURRENT_DATE) RETURNING US_id""",
+               (backlogprod, None, criador, titulo, desc, prioridade, status))
     return result['us_id'] if result else None
 
 def criar_sprint(projeto, titulo, datainicio, datafim, status):

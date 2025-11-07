@@ -20,7 +20,7 @@ def dict_to_json(obj):
     if obj is None:
         return None
     if isinstance(obj, list):
-        return [dict(row) for row in obj]
+        return dict(obj)
     return dict(obj)
 
 @app.route('/')
@@ -83,7 +83,11 @@ def home():
 @login_required
 def api_projetos():
     projetos = db.get_projetos_usuario(session['user_cpf'])
-    return jsonify({'projetos': dict_to_json(projetos)})
+    if projetos:
+        projetos_dict = [dict_to_json(proj) for proj in projetos]
+    else:
+        projetos_dict = []
+    return jsonify({'projetos': projetos_dict})
 
 @app.route('/api/projeto/<int:proj_id>')
 @login_required
@@ -93,11 +97,19 @@ def api_projeto(proj_id):
         backlog = db.get_backlogprod_by_projeto(proj_id)
         sprints = db.get_sprints_by_projeto(proj_id)
         usuarios = db.get_usuarios_projeto(proj_id)
+        if sprints:
+            sprints_dict = [dict_to_json(sprint) for sprint in sprints]
+        else:
+            sprints_dict = [] 
+        if usuarios:
+            usuarios_dict = [dict_to_json(usr) for usr in usuarios]
+        else:
+            usuarios_dict = []    
         return jsonify({
             'projeto': dict_to_json(projeto),
             'backlog': dict_to_json(backlog),
-            'sprints': dict_to_json(sprints),
-            'usuarios': dict_to_json(usuarios)
+            'sprints': sprints_dict,
+            'usuarios': usuarios_dict
         })
     return jsonify({'error': 'Projeto não encontrado'}), 404
 
@@ -137,7 +149,11 @@ def api_atualizar_projeto(proj_id):
 @login_required
 def api_userstories(bp_id):
     userstories = db.get_backlogprod_userstories(bp_id)
-    return jsonify({'userstories': dict_to_json(userstories)})
+    if userstories:
+        userstories_dict = [dict_to_json(usr) for usr in userstories]
+    else:
+        userstories_dict = []  
+    return jsonify({'userstories': userstories_dict})
 
 @app.route('/api/userstory/<int:us_id>')
 @login_required
@@ -215,15 +231,23 @@ def api_sprint(sprint_id):
             userstories = db.get_backlogsprint_userstories(backlog['bs_id'])
         else:
             userstories = []
-        tarefas = []
+        if userstories:
+            userstories_dict = [dict_to_json(usr) for usr in userstories]
+        else:
+            userstories_dict = []
+        tarefas = []  
+        if tarefas:
+            tarefas_dict = [dict_to_json(tarefa) for tarefa in tarefas]
+        else:
+            tarefas_dict = [] 
         if plano:
             tarefas = db.get_tarefas(plano['ps_id'])
         return jsonify({
             'sprint': dict_to_json(sprint),
             'backlog': dict_to_json(backlog),
             'plano': dict_to_json(plano),
-            'userstories': dict_to_json(userstories),
-            'tarefas': dict_to_json(tarefas)
+            'userstories': userstories_dict,
+            'tarefas': tarefas_dict
         })
     return jsonify({'error': 'Sprint não encontrada'}), 404
 
@@ -261,9 +285,13 @@ def api_get_planosprint(ps_id):
     plano = db.get_planosprint(ps_id)
     if plano:
         tarefas = db.get_tarefas(ps_id)
+        if tarefas:
+            tarefas_dict = [dict_to_json(tarefa) for tarefa in tarefas]
+        else:
+            tarefas_dict = [] 
         return jsonify({
             'plano': dict_to_json(plano),
-            'tarefas': dict_to_json(tarefas)
+            'tarefas': tarefas_dict
         })
     return jsonify({'error': 'Plano de sprint não encontrado'}), 404
 
