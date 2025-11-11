@@ -9,15 +9,15 @@
 <body>
     <div class="header">
         <div class="header-logo">
-            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo">
-            <h2>MeuScrum</h2>
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo" onclick="window.location.href='/home'">
+            <h2 onclick="window.location.href='/home'">MeuScrum</h2>
         </div>
         <div class="header-actions">
             <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
-                ⚙️
+                👤
             </button>
             <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
-                🏠
+                📝
             </button>
             <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
                 🚪
