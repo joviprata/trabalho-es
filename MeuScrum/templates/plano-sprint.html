@@ -30,35 +30,34 @@
         
         <div class="content-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h1>Plano de Sprint</h1>
-                <button class="btn btn-primary" onclick="savePlano()">Salvar Plano</button>
+                <button id="btn-back" class="btn btn-back" onclick="window.history.back()">く</button>
+                <h1 style="flex:1; text-align:center; margin:0;">Plano de Sprint</h1>
+                <button id="btn-save-plano" class="btn btn-primary" type="submit" form="planoForm">Salvar Plano</button>
             </div>
-            
-            <div class="form-group">
-                <label for="plano-objetivo">Objetivo da Sprint</label>
-                <textarea id="plano-objetivo" class="form-control" rows="3" placeholder="Qual o objetivo desta sprint?"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="plano-trabalho">Trabalho Planejado</label>
-                <textarea id="plano-trabalho" class="form-control" rows="4" placeholder="Descreva o trabalho planejado para esta sprint"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="plano-equipe">Equipe</label>
-                <textarea id="plano-equipe" class="form-control" rows="3" placeholder="Membros da equipe envolvidos nesta sprint"></textarea>
-            </div>
-            
-            <div class="form-group">
-                <label for="plano-saida">Saída Esperada</label>
-                <textarea id="plano-saida" class="form-control" rows="3" placeholder="O que será entregue ao final desta sprint?"></textarea>
-            </div>
+            <form id="planoForm" onsubmit="event.preventDefault(); savePlano();">
+                <div class="form-group">
+                    <label for="plano-objetivo">Objetivo da Sprint</label>
+                    <textarea id="plano-objetivo" class="form-control" rows="3" placeholder="Qual o objetivo desta sprint?"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="plano-trabalho">Trabalho Planejado</label>
+                    <textarea id="plano-trabalho" class="form-control" rows="4" placeholder="Descreva o trabalho planejado para esta sprint"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="plano-equipe">Equipe</label>
+                    <textarea id="plano-equipe" class="form-control" rows="3" placeholder="Membros da equipe envolvidos nesta sprint"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="plano-saida">Saída Esperada</label>
+                    <textarea id="plano-saida" class="form-control" rows="3" placeholder="O que será entregue ao final desta sprint?"></textarea>
+                </div>
+            </form>
         </div>
         
         <div class="content-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                 <h2>Tarefas</h2>
-                <button class="btn btn-primary" onclick="openNewTarefaModal()">+ Nova Tarefa</button>
+                <button id="btn-new-tarefa" class="btn btn-primary" onclick="openNewTarefaModal()">+ Nova Tarefa</button>
             </div>
             
             <div id="tarefas-container" class="userstories-list">
@@ -96,8 +95,9 @@
     </div>
     
     <script>
-        let currentPlanoId = {{ ps_id }};
+        let currentPlanoId = "{{ ps_id }}";
         let currentSprintId = null;
+        let userPapel = "{{ user_papel }}";
         
         function showAlert(message, type = 'info') {
             const container = document.getElementById('alert-container');
@@ -107,6 +107,47 @@
             }, 5000);
         }
         
+        function applyPlanoPermissions() {
+            // Apenas ScrumMaster pode salvar/editar; ProductOwner e Developer: apenas visualizam
+            const isScrumMaster = userPapel === 'ScrumMaster';
+
+            // Desabilitar campos de input
+            document.getElementById('plano-objetivo').disabled = !isScrumMaster;
+            document.getElementById('plano-trabalho').disabled = !isScrumMaster;
+            document.getElementById('plano-equipe').disabled = !isScrumMaster;
+            document.getElementById('plano-saida').disabled = !isScrumMaster;
+
+            // Desabilitar botão Salvar Plano
+            const btnSavePlano = document.getElementById('btn-save-plano');
+            btnSavePlano.disabled = !isScrumMaster;
+            if (!isScrumMaster) {
+                btnSavePlano.classList.add('btn-disabled');
+            } else {
+                btnSavePlano.classList.remove('btn-disabled');
+            }
+
+            // Desabilitar botão + Nova Tarefa
+            const btnNewTarefa = document.getElementById('btn-new-tarefa');
+            btnNewTarefa.disabled = !isScrumMaster;
+            if (!isScrumMaster) {
+                btnNewTarefa.classList.add('btn-disabled');
+            } else {
+                btnNewTarefa.classList.remove('btn-disabled');
+            }
+
+            // Desabilitar campos do modal Nova Tarefa
+            document.getElementById('tarefa-descricao').disabled = !isScrumMaster;
+            document.getElementById('tarefa-status').disabled = !isScrumMaster;
+            // Desabilitar botão Criar Tarefa
+            const btnCriarTarefa = document.querySelector('#newTarefaForm button[type="submit"]');
+            btnCriarTarefa.disabled = !isScrumMaster;
+            if (!isScrumMaster) {
+                btnCriarTarefa.classList.add('btn-disabled');
+            } else {
+                btnCriarTarefa.classList.remove('btn-disabled');
+            }
+        }
+        
         async function loadPlano() {
             try {
                 const response = await fetch(`/api/planosprint/${currentPlanoId}`);
@@ -114,9 +155,9 @@
                     showAlert('Plano não encontrado', 'error');
                     return;
                 }
-                
+
                 const data = await response.json();
-                
+
                 if (data.plano) {
                     const plano = data.plano;
                     document.getElementById('plano-objetivo').value = plano.objetivo || '';
@@ -125,7 +166,10 @@
                     document.getElementById('plano-saida').value = plano.saida || '';
                     currentSprintId = plano.sprint;
                 }
-                
+
+                // ScrumMaster pode tudo, Developer pode concluir/reabrir, ProductOwner não pode nada
+                const isScrumMaster = userPapel === 'ScrumMaster';
+                const isDeveloper = userPapel === 'Developer';
                 if (data.tarefas && data.tarefas.length > 0) {
                     const container = document.getElementById('tarefas-container');
                     container.innerHTML = data.tarefas.map(tarefa => `
@@ -140,10 +184,10 @@
                                     </div>
                                 </div>
                                 <div style="display: flex; gap: 0.5rem;">
-                                    <button class="btn btn-outline" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="updateTarefaStatus(${tarefa.tarefa_id}, '${tarefa.status}')">
+                                    <button class="btn btn-outline${!(isScrumMaster||isDeveloper) ? ' btn-disabled' : ''}" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="${(isScrumMaster||isDeveloper) ? `updateTarefaStatus(${tarefa.tarefa_id}, '${tarefa.status}')` : 'return false;'}" ${!(isScrumMaster||isDeveloper) ? 'disabled' : ''}>
                                         ${tarefa.status === 'Concluída' ? 'Reabrir' : 'Concluir'}
                                     </button>
-                                    <button class="btn btn-danger" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="deleteTarefa(${tarefa.tarefa_id})">Excluir</button>
+                                    <button class="btn btn-danger${!isScrumMaster ? ' btn-disabled' : ''}" style="padding: 0.25rem 0.75rem; font-size: 0.85rem;" onclick="${isScrumMaster ? `deleteTarefa(${tarefa.tarefa_id})` : 'return false;'}" ${!isScrumMaster ? 'disabled' : ''}>Excluir</button>
                                 </div>
                             </div>
                         </div>
@@ -277,6 +321,7 @@
         });
         
         loadPlano();
+        applyPlanoPermissions();
     </script>
 </body>
 </html>

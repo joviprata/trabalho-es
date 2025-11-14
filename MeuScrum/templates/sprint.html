@@ -31,7 +31,8 @@
         <div class="content-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
                 <div>
-                    <h1 id="sprint-title">Carregando...</h1>
+                    <button class="btn btn-back" onclick="window.history.back()">く</button>
+                    <h1 id="sprint-title" style="display:inline-block; vertical-align:middle;">Carregando...</h1>
                     <p id="sprint-dates" style="color: var(--text-light); margin-top: 0.5rem;"></p>
                 </div>
                 <div style="display: flex; gap: 1rem; align-items: center;">
@@ -45,7 +46,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <h2>Backlog da Sprint</h2>
                 <div>
-                    <button class="btn btn-secondary" onclick="openAddUserstoriesModal()">Adicionar User Stories</button>
+                    <button id="btn-add-userstories" class="btn btn-secondary" onclick="openAddUserstoriesModal()">Adicionar User Stories</button>
                 </div>
             </div>
             <div id="sprint-backlog-container" class="userstories-list" style="margin-top: 1.5rem;">
@@ -66,10 +67,11 @@
     </div>
     
     <script>
-        let currentSprintId = {{ sprint_id }};
+        let currentSprintId = "{{ sprint_id }}";
         let currentBacklogId = null;
         let currentPlanoId = null;
         let currentSprintData = null;
+        let userPapel = "{{ user_papel }}" || null;
         
         function showAlert(message, type = 'info') {
             const container = document.getElementById('alert-container');
@@ -104,6 +106,7 @@
 
                 const container = document.getElementById('sprint-backlog-container');
                 if (data.userstories && data.userstories.length > 0) {
+                    const isScrumMaster = userPapel === 'ScrumMaster';
                     container.innerHTML = data.userstories.map(us => `
                         <div class="userstory-card">
                             <div class="userstory-header">
@@ -115,7 +118,7 @@
                                 <span>Status: ${us.status}</span>
                                 <div>
                                     <span style="margin-right:1rem;">${us.responsavel ? 'Responsável: ' + us.responsavel : ''}</span>
-                                    <button class="btn btn-danger" onclick="removeFromSprint(${us.us_id})">Remover</button>
+                                    <button class="btn btn-danger ${!isScrumMaster ? 'btn-disabled' : ''}" onclick="removeFromSprint(${us.us_id})" ${!isScrumMaster ? 'disabled' : ''}>Remover</button>
                                 </div>
                             </div>
                         </div>
@@ -132,6 +135,20 @@
             if (status === 'Concluída' || status === 'Concluído') return 'completed';
             if (status === 'Cancelada' || status === 'Pausado') return 'paused';
             return 'active';
+        }
+
+        function applySprintPermissions() {
+            // Apenas ScrumMaster pode adicionar/remover user stories e gerenciar sprint
+            const isScrumMaster = userPapel === 'ScrumMaster';
+            const btnAddUserstories = document.getElementById('btn-add-userstories');
+            
+            if (isScrumMaster) {
+                btnAddUserstories.disabled = false;
+                btnAddUserstories.classList.remove('btn-disabled');
+            } else {
+                btnAddUserstories.disabled = true;
+                btnAddUserstories.classList.add('btn-disabled');
+            }
         }
 
         async function openPlanoSprint() {
@@ -169,6 +186,10 @@
         }
 
         async function openAddUserstoriesModal() {
+            if (userPapel !== 'ScrumMaster') {
+                showAlert('Apenas o Scrum Master pode adicionar user stories à sprint', 'error');
+                return;
+            }
             try {
                 if (!currentSprintData || !currentSprintData.sprint) {
                     showAlert('Sprint não carregada ainda', 'error');
@@ -238,6 +259,10 @@
         }
 
         async function removeFromSprint(us_id) {
+            if (userPapel !== 'ScrumMaster') {
+                showAlert('Apenas o Scrum Master pode remover user stories da sprint', 'error');
+                return;
+            }
             try {
                 const resp = await fetch(`/api/sprint/${currentSprintId}/userstory/${us_id}`, { method: 'DELETE' });
                 const data = await resp.json();
@@ -253,6 +278,7 @@
         }
 
         // Inicializa
+        applySprintPermissions();
         loadSprint();
     </script>
 </body>

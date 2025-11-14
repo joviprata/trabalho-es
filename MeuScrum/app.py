@@ -104,12 +104,24 @@ def api_projeto(proj_id):
         if usuarios:
             usuarios_dict = [dict_to_json(usr) for usr in usuarios]
         else:
-            usuarios_dict = []    
+            usuarios_dict = []
+        # Determine current user's papel in this projeto (if any)
+        user_papel = None
+        try:
+            for u in usuarios:
+                # u contains fields from tb_usuario plus Papel
+                if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                    # Papel may be present in the join as 'papel' or 'Papel'
+                    user_papel = u.get('papel') or u.get('Papel')
+                    break
+        except Exception:
+            user_papel = None
         return jsonify({
             'projeto': dict_to_json(projeto),
             'backlog': dict_to_json(backlog),
             'sprints': sprints_dict,
-            'usuarios': usuarios_dict
+            'usuarios': usuarios_dict,
+            'user_papel': user_papel
         })
     return jsonify({'error': 'Projeto não encontrado'}), 404
 
@@ -171,6 +183,26 @@ def api_criar_userstory():
     prioridade = data.get('prioridade', 'Média')
     status = data.get('status', 'A fazer')
     
+    # Check if user is ProductOwner
+    try:
+        bp = db.get_backlogprod(backlogprod)
+        if bp:
+            proj_id = bp.get('projeto') or bp.get('Projeto')
+            if proj_id:
+                usuarios = db.get_usuarios_projeto(proj_id)
+                is_product_owner = False
+                if usuarios:
+                    for u in usuarios:
+                        if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                            papel = u.get('papel') or u.get('Papel')
+                            if papel == 'ProductOwner' or papel == 'Product Owner':
+                                is_product_owner = True
+                            break
+                if not is_product_owner:
+                    return jsonify({'success': False, 'message': 'Apenas o Product Owner pode criar user stories'}), 403
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Erro ao verificar permissões'}), 403
+    
     try:
         us_id = db.criar_userStory(backlogprod, session['user_cpf'], titulo, desc, prioridade, status)
         userstory = db.get_userstory(us_id)
@@ -182,6 +214,31 @@ def api_criar_userstory():
 @login_required
 def api_atualizar_userstory(us_id):
     data = request.get_json()
+    
+    # Check if user is ProductOwner
+    try:
+        userstory = db.get_userstory(us_id)
+        if userstory:
+            backlogprod = userstory.get('backlogprod') or userstory.get('BacklogProd')
+            if backlogprod:
+                bp = db.get_backlogprod(backlogprod)
+                if bp:
+                    proj_id = bp.get('projeto') or bp.get('Projeto')
+                    if proj_id:
+                        usuarios = db.get_usuarios_projeto(proj_id)
+                        is_product_owner = False
+                        if usuarios:
+                            for u in usuarios:
+                                if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                                    papel = u.get('papel') or u.get('Papel')
+                                    if papel == 'ProductOwner' or papel == 'Product Owner':
+                                        is_product_owner = True
+                                    break
+                        if not is_product_owner:
+                            return jsonify({'success': False, 'message': 'Apenas o Product Owner pode editar user stories'}), 403
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Erro ao verificar permissões'}), 403
+    
     if 'prioridade' in data:
         db.update_userstory_prioridade(us_id, data['prioridade'])
     if 'status' in data:
@@ -212,6 +269,22 @@ def api_criar_sprint():
     datainicio = data.get('datainicio')
     datafim = data.get('datafim')
     status = data.get('status', 'Planejada')
+    
+    # Check if user is ScrumMaster
+    try:
+        usuarios = db.get_usuarios_projeto(projeto)
+        is_scrum_master = False
+        if usuarios:
+            for u in usuarios:
+                if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                    papel = u.get('papel') or u.get('Papel')
+                    if papel == 'ScrumMaster' or papel == 'Scrum Master':
+                        is_scrum_master = True
+                    break
+        if not is_scrum_master:
+            return jsonify({'success': False, 'message': 'Apenas o Scrum Master pode criar sprints'}), 403
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Erro ao verificar permissões'}), 403
     
     try:
         sprint_id = db.criar_sprint(projeto, titulo, datainicio, datafim, status)
@@ -259,12 +332,56 @@ def api_sprint(sprint_id):
 @login_required
 def api_atualizar_sprint(sprint_id):
     data = request.get_json()
+    
+    # Check if user is ScrumMaster
+    try:
+        sprint_data = db.get_sprint(sprint_id)
+        if sprint_data:
+            proj_id = sprint_data.get('projeto') or sprint_data.get('Projeto')
+            if proj_id:
+                usuarios = db.get_usuarios_projeto(proj_id)
+                is_scrum_master = False
+                if usuarios:
+                    for u in usuarios:
+                        if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                            papel = u.get('papel') or u.get('Papel')
+                            if papel == 'ScrumMaster' or papel == 'Scrum Master':
+                                is_scrum_master = True
+                            break
+                if not is_scrum_master:
+                    return jsonify({'success': False, 'message': 'Apenas o Scrum Master pode alterar sprints'}), 403
+    except Exception as e:
+        return jsonify({'success': False, 'message': 'Erro ao verificar permissões'}), 403
+    
     if 'status' in data:
         db.update_sprint_status(sprint_id, data['status'])
     if 'titulo' in data:
         db.update_sprint_title(sprint_id, data['titulo'])
     sprint = db.get_sprint(sprint_id)
     return jsonify({'success': True, 'sprint': dict_to_json(sprint)})
+
+
+@app.route('/api/projeto/<int:proj_id>/role', methods=['PUT'])
+@login_required
+def api_update_projeto_role(proj_id):
+    """Atualiza o papel do usuário logado no projeto."""
+    data = request.get_json()
+    papel = data.get('papel')
+    valid = ['ProductOwner', 'ScrumMaster', 'Developer', 'Product Owner', 'Scrum Master']
+    if papel is None:
+        return jsonify({'success': False, 'message': 'Papel não informado'}), 400
+    # Normalize common labels
+    if papel == 'Product Owner':
+        papel = 'ProductOwner'
+    if papel == 'Scrum Master':
+        papel = 'ScrumMaster'
+    if papel not in ['ProductOwner', 'ScrumMaster', 'Developer']:
+        return jsonify({'success': False, 'message': 'Papel inválido'}), 400
+    try:
+        db.update_papel_userproj(proj_id, session['user_cpf'], papel)
+        return jsonify({'success': True, 'papel': papel})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 
 @app.route('/api/sprint/<int:sprint_id>/userstory', methods=['POST'])
@@ -425,17 +542,57 @@ def projeto(proj_id):
 @app.route('/backlog/<int:bp_id>')
 @login_required
 def backlog(bp_id):
-    return render_template('backlog.html', bp_id=bp_id)
+    # Get backlog to get the project and determine user's role
+    bp = db.get_backlogprod(bp_id)
+    user_papel = None
+    if bp:
+        proj_id = bp.get('projeto') or bp.get('Projeto')
+        if proj_id:
+            usuarios = db.get_usuarios_projeto(proj_id)
+            if usuarios:
+                for u in usuarios:
+                    if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                        user_papel = u.get('papel') or u.get('Papel')
+                        break
+    return render_template('backlog.html', bp_id=bp_id, user_papel=user_papel)
 
 @app.route('/sprint/<int:sprint_id>')
 @login_required
 def sprint(sprint_id):
-    return render_template('sprint.html', sprint_id=sprint_id)
+    # Get sprint to get the project and determine user's role
+    sprint_data = db.get_sprint(sprint_id)
+    user_papel = None
+    if sprint_data:
+        proj_id = sprint_data.get('projeto') or sprint_data.get('Projeto')
+        if proj_id:
+            usuarios = db.get_usuarios_projeto(proj_id)
+            if usuarios:
+                for u in usuarios:
+                    if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                        user_papel = u.get('papel') or u.get('Papel')
+                        break
+    return render_template('sprint.html', sprint_id=sprint_id, user_papel=user_papel)
 
 @app.route('/plano-sprint/<int:ps_id>')
 @login_required
 def plano_sprint(ps_id):
-    return render_template('plano-sprint.html', ps_id=ps_id)
+    # Get plano-sprint to get the sprint and project and determine user's role
+    plano_data = db.get_planosprint(ps_id)
+    user_papel = None
+    if plano_data:
+        sprint_id = plano_data.get('sprint') or plano_data.get('Sprint')
+        if sprint_id:
+            sprint_data = db.get_sprint(sprint_id)
+            if sprint_data:
+                proj_id = sprint_data.get('projeto') or sprint_data.get('Projeto')
+                if proj_id:
+                    usuarios = db.get_usuarios_projeto(proj_id)
+                    if usuarios:
+                        for u in usuarios:
+                            if u.get('cpf') == session.get('user_cpf') or u.get('CPF') == session.get('user_cpf'):
+                                user_papel = u.get('papel') or u.get('Papel')
+                                break
+    return render_template('plano-sprint.html', ps_id=ps_id, user_papel=user_papel)
 
 @app.route('/configuracoes')
 @login_required

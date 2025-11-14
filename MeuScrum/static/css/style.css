@@ -1,5 +1,26 @@
 /* MeuScrum - Estilos Globais */
 
+.btn-back {
+    background: var(--primary-color);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1.2rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 1rem;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.btn-back:hover {
+    background: #357ABD;
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+}
+
 :root {
     --primary-color: #4A90E2;
     --secondary-color: #7B68EE;
@@ -539,5 +560,22 @@ body {
 
 .hidden {
     display: none;
+}
+
+/* Botões Desabilitados */
+.btn-disabled,
+.btn:disabled {
+    background-color: #E9E9ED !important;
+    color: #2C3E50 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.btn-disabled:hover,
+.btn:disabled:hover {
+    background-color: #E9E9ED !important;
+    color: #2C3E50 !important;
 }
 

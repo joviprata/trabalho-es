@@ -30,8 +30,11 @@
         
         <div class="content-card">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-                <h1>Backlog de Produto</h1>
-                <button class="btn btn-primary" onclick="openNewUserStoryModal()">+ Nova User Story</button>
+                <div>
+                    <button class="btn btn-back" onclick="window.history.back()">く</button>
+                    <h1 style="display:inline-block; vertical-align:middle;">Backlog de Produto</h1>
+                </div>
+                <button id="btn-new-userstory" class="btn btn-primary" onclick="openNewUserStoryModal()">+ Nova User Story</button>
             </div>
             
             <div id="userstories-container" class="userstories-list">
@@ -115,8 +118,9 @@
     </div>
     
     <script>
-        let currentBacklogId = {{ bp_id }};
+        let currentBacklogId = "{{ bp_id }}";
         let currentUserStoryId = null;
+        let userPapel = "{{ user_papel }}" || null;
         
         function showAlert(message, type = 'info') {
             const container = document.getElementById('alert-container');
@@ -126,6 +130,20 @@
             }, 5000);
         }
         
+        function applyBacklogPermissions() {
+            // Apenas ProductOwner pode criar/editar
+            const isProductOwner = userPapel === 'ProductOwner';
+            const btnNewUserstory = document.getElementById('btn-new-userstory');
+            
+            if (isProductOwner) {
+                btnNewUserstory.disabled = false;
+                btnNewUserstory.classList.remove('btn-disabled');
+            } else {
+                btnNewUserstory.disabled = true;
+                btnNewUserstory.classList.add('btn-disabled');
+            }
+        }
+        
         async function loadUserStories() {
             try {
                 const response = await fetch(`/api/backlog/${currentBacklogId}/userstories`);
@@ -133,8 +151,9 @@
                 const container = document.getElementById('userstories-container');
                 
                 if (data.userstories && data.userstories.length > 0) {
+                    const isProductOwner = userPapel === 'ProductOwner';
                     container.innerHTML = data.userstories.map(us => `
-                        <div class="userstory-card" onclick="openEditUserStoryModal(${us.us_id})">
+                        <div class="userstory-card" ${isProductOwner ? `onclick="openEditUserStoryModal(${us.us_id})"` : 'style="cursor:default;"'}>
                             <div class="userstory-header">
                                 <div class="userstory-title">${us.titulo}</div>
                                 <span class="priority-badge priority-${us.prioridade.toLowerCase()}">${us.prioridade}</span>
@@ -155,6 +174,10 @@
         }
         
         function openNewUserStoryModal() {
+            if (userPapel !== 'ProductOwner') {
+                showAlert('Apenas o Product Owner pode criar user stories', 'error');
+                return;
+            }
             document.getElementById('newUserStoryModal').classList.add('active');
         }
         
@@ -164,6 +187,10 @@
         }
         
         async function openEditUserStoryModal(usId) {
+            if (userPapel !== 'ProductOwner') {
+                showAlert('Apenas o Product Owner pode editar user stories', 'error');
+                return;
+            }
             currentUserStoryId = usId;
             try {
                 const response = await fetch(`/api/userstory/${usId}`);
@@ -297,6 +324,7 @@
             }
         });
         
+        applyBacklogPermissions();
         loadUserStories();
     </script>
 </body>
