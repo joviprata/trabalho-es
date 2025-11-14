@@ -186,6 +186,10 @@ def api_atualizar_userstory(us_id):
         db.update_userstory_prioridade(us_id, data['prioridade'])
     if 'status' in data:
         db.update_userstory_status(us_id, data['status'])
+    if 'titulo' in data:
+        db.update_userstory_titulo(us_id, data['titulo'])
+    if 'descricao' in data:
+        db.update_userstory_descricao(us_id, data['descricao'])
     if 'responsavel' in data:
         db.add_responsavel2userstory(us_id, data['responsavel'])
     if 'backlogsprint' in data:
@@ -261,6 +265,48 @@ def api_atualizar_sprint(sprint_id):
         db.update_sprint_title(sprint_id, data['titulo'])
     sprint = db.get_sprint(sprint_id)
     return jsonify({'success': True, 'sprint': dict_to_json(sprint)})
+
+
+@app.route('/api/sprint/<int:sprint_id>/userstory', methods=['POST'])
+@login_required
+def api_add_userstory_to_sprint(sprint_id):
+    """Adiciona uma user story ao backlog da sprint (usa BacklogSprint = bs_id)."""
+    data = request.get_json()
+    us_id = data.get('userstory') or data.get('us_id') or data.get('userstory_id')
+    if not us_id:
+        return jsonify({'success': False, 'message': 'User story não informada'}), 400
+    backlog = db.get_backlogsprint_by_sprint(sprint_id)
+    if not backlog:
+        return jsonify({'success': False, 'message': 'Backlog da sprint não encontrado'}), 404
+    try:
+        db.add_userstory2backlogsprint(us_id, backlog['bs_id'])
+        userstories = db.get_backlogsprint_userstories(backlog['bs_id'])
+        if userstories:
+            userstories_dict = [dict_to_json(us) for us in userstories]
+        else:
+            userstories_dict = []
+        return jsonify({'success': True, 'userstories': userstories_dict})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/sprint/<int:sprint_id>/userstory/<int:us_id>', methods=['DELETE'])
+@login_required
+def api_remove_userstory_from_sprint(sprint_id, us_id):
+    """Remove a associação da user story com o backlog da sprint (BacklogSprint = NULL)."""
+    backlog = db.get_backlogsprint_by_sprint(sprint_id)
+    if not backlog:
+        return jsonify({'success': False, 'message': 'Backlog da sprint não encontrado'}), 404
+    try:
+        db.remove_userstory_from_backlogsprint(us_id)
+        userstories = db.get_backlogsprint_userstories(backlog['bs_id'])
+        if userstories:
+            userstories_dict = [dict_to_json(us) for us in userstories]
+        else:
+            userstories_dict = []
+        return jsonify({'success': True, 'userstories': userstories_dict})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/plano-sprint', methods=['POST'])
 @login_required

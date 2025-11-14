@@ -42,10 +42,26 @@
         </div>
         
         <div class="content-card">
-            <h2>Backlog da Sprint</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Backlog da Sprint</h2>
+                <div>
+                    <button class="btn btn-secondary" onclick="openAddUserstoriesModal()">Adicionar User Stories</button>
+                </div>
+            </div>
             <div id="sprint-backlog-container" class="userstories-list" style="margin-top: 1.5rem;">
                 <div class="spinner"></div>
             </div>
+        </div>
+    </div>
+    
+    <!-- Modal: adicionar userstories do backlog do produto -->
+    <div id="modal-add-us" class="modal" style="display:none; position:fixed; left:0; top:0; right:0; bottom:0; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:#fff; padding:1rem; width:90%; max-width:720px; border-radius:6px; max-height:80%; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>Adicionar user stories do Backlog do Produto</h3>
+                <button class="btn" onclick="closeAddUserstoriesModal()">Fechar</button>
+            </div>
+            <div id="modal-add-us-list" style="margin-top:1rem;"></div>
         </div>
     </div>
     
@@ -62,34 +78,32 @@
                 container.innerHTML = '';
             }, 5000);
         }
-        
+
         async function loadSprint() {
             try {
                 const response = await fetch(`/api/sprint/${currentSprintId}`);
                 const data = await response.json();
                 currentSprintData = data;
-                
+
                 if (data.sprint) {
                     const sprint = data.sprint;
                     document.getElementById('sprint-title').textContent = sprint.titulo;
-                    document.getElementById('sprint-dates').textContent = 
+                    document.getElementById('sprint-dates').textContent =
                         `${new Date(sprint.datainicio).toLocaleDateString('pt-BR')} - ${new Date(sprint.datafim).toLocaleDateString('pt-BR')}`;
                     document.getElementById('sprint-status').textContent = sprint.status;
                     document.getElementById('sprint-status').className = `project-status status-${getStatusClass(sprint.status)}`;
                 }
-                
+
                 if (data.backlog) {
                     currentBacklogId = data.backlog.bs_id;
                 }
-                
+
                 if (data.plano) {
                     currentPlanoId = data.plano.ps_id;
-                } else {
-                    // Plano will be created when user clicks the button
                 }
-                
+
+                const container = document.getElementById('sprint-backlog-container');
                 if (data.userstories && data.userstories.length > 0) {
-                    const container = document.getElementById('sprint-backlog-container');
                     container.innerHTML = data.userstories.map(us => `
                         <div class="userstory-card">
                             <div class="userstory-header">
@@ -99,25 +113,27 @@
                             <p style="color: var(--text-light); margin-top: 0.5rem;">${us.descricao}</p>
                             <div style="display: flex; justify-content: space-between; margin-top: 0.75rem; font-size: 0.9rem;">
                                 <span>Status: ${us.status}</span>
-                                <span>${us.responsavel ? 'Responsável: ' + us.responsavel : 'Sem responsável'}</span>
+                                <div>
+                                    <span style="margin-right:1rem;">${us.responsavel ? 'Responsável: ' + us.responsavel : ''}</span>
+                                    <button class="btn btn-danger" onclick="removeFromSprint(${us.us_id})">Remover</button>
+                                </div>
                             </div>
                         </div>
                     `).join('');
                 } else {
-                    document.getElementById('sprint-backlog-container').innerHTML = 
-                        '<p style="text-align: center; color: var(--text-light);">Nenhuma user story no backlog da sprint.</p>';
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-light);">Nenhuma user story no backlog da sprint.</p>';
                 }
             } catch (error) {
                 showAlert('Erro ao carregar sprint', 'error');
             }
         }
-        
+
         function getStatusClass(status) {
             if (status === 'Concluída' || status === 'Concluído') return 'completed';
             if (status === 'Cancelada' || status === 'Pausado') return 'paused';
             return 'active';
         }
-        
+
         async function openPlanoSprint() {
             if (currentPlanoId) {
                 window.location.href = `/plano-sprint/${currentPlanoId}`;
@@ -137,9 +153,9 @@
                             saida: '' 
                         })
                     });
-                    
+
                     const data = await response.json();
-                    
+
                     if (data.success && data.plano) {
                         currentPlanoId = data.plano.ps_id;
                         window.location.href = `/plano-sprint/${currentPlanoId}`;
@@ -151,7 +167,92 @@
                 }
             }
         }
-        
+
+        async function openAddUserstoriesModal() {
+            try {
+                if (!currentSprintData || !currentSprintData.sprint) {
+                    showAlert('Sprint não carregada ainda', 'error');
+                    return;
+                }
+                const projId = currentSprintData.sprint.projeto;
+                if (!projId) {
+                    showAlert('Projeto da sprint não encontrado', 'error');
+                    return;
+                }
+                const resp = await fetch(`/api/projeto/${projId}`);
+                const projData = await resp.json();
+                const bp = projData.backlog;
+                if (!bp) {
+                    showAlert('Backlog do produto não encontrado para este projeto', 'error');
+                    return;
+                }
+                const r2 = await fetch(`/api/backlog/${bp.bp_id}/userstories`);
+                const d2 = await r2.json();
+                const list = d2.userstories || [];
+                // Filter out userstories already in a sprint (backlogsprint set)
+                const available = list.filter(us => !us.backlogsprint);
+                const modalList = document.getElementById('modal-add-us-list');
+                if (available.length === 0) {
+                    modalList.innerHTML = '<p style="color:var(--text-light);">Nenhuma user story disponível no backlog do produto.</p>';
+                } else {
+                    modalList.innerHTML = available.map(us => `
+                        <div style="border-bottom:1px solid #eee; padding:0.5rem 0; display:flex; justify-content:space-between; align-items:center;">
+                            <div style="flex:1;">
+                                <div style="font-weight:600;">${us.titulo}</div>
+                                <div style="color:var(--text-light); font-size:0.9rem;">${us.descricao}</div>
+                            </div>
+                            <div style="margin-left:1rem;">
+                                <button class="btn btn-primary" onclick="addUserStoryToSprint(${us.us_id})">Adicionar</button>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+                document.getElementById('modal-add-us').style.display = 'flex';
+            } catch (error) {
+                showAlert('Erro ao carregar user stories do backlog do produto', 'error');
+            }
+        }
+
+        function closeAddUserstoriesModal() {
+            document.getElementById('modal-add-us').style.display = 'none';
+        }
+
+        async function addUserStoryToSprint(us_id) {
+            try {
+                const resp = await fetch(`/api/sprint/${currentSprintId}/userstory`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userstory: us_id })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    showAlert('User story adicionada à sprint', 'success');
+                    closeAddUserstoriesModal();
+                    loadSprint();
+                } else {
+                    showAlert(data.message || 'Erro ao adicionar user story', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+
+        async function removeFromSprint(us_id) {
+            try {
+                const resp = await fetch(`/api/sprint/${currentSprintId}/userstory/${us_id}`, { method: 'DELETE' });
+                const data = await resp.json();
+                if (data.success) {
+                    showAlert('User story removida da sprint', 'success');
+                    loadSprint();
+                } else {
+                    showAlert(data.message || 'Erro ao remover user story', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+
+        // Inicializa
         loadSprint();
     </script>
 </body>

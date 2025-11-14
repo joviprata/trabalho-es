@@ -113,6 +113,11 @@ def add_userstory2backlogsprint(userstory,backlogsprint):
     comandoSQL("UPDATE tb_userstory SET BacklogSprint = %s WHERE US_id = %s", (backlogsprint, userstory))
     return
 
+def remove_userstory_from_backlogsprint(userstory):
+    """Remove a associação de uma userstory com um backlog de sprint (seta BacklogSprint = NULL)."""
+    comandoSQL("UPDATE tb_userstory SET BacklogSprint = NULL WHERE US_id = %s", (userstory,))
+    return
+
 def add_responsavel2userstory(userstory,responsavel):
     comandoSQL("UPDATE tb_userstory SET Responsavel = %s WHERE US_id = %s", (responsavel, userstory))
     return
@@ -123,6 +128,14 @@ def update_userstory_prioridade(userstory,prioridade):
 
 def update_userstory_status(userstory,status):
     comandoSQL("UPDATE tb_userstory SET Status = %s WHERE US_id = %s", (status, userstory))
+    return
+
+def update_userstory_titulo(userstory, titulo):
+    comandoSQL("UPDATE tb_userstory SET Titulo = %s WHERE US_id = %s", (titulo, userstory))
+    return
+
+def update_userstory_descricao(userstory, descricao):
+    comandoSQL("UPDATE tb_userstory SET Descricao = %s WHERE US_id = %s", (descricao, userstory))
     return
 
 def update_sprint_status(sprint,status):

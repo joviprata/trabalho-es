@@ -235,18 +235,20 @@
             e.preventDefault();
             const prioridade = document.getElementById('edit-us-prioridade').value;
             const status = document.getElementById('edit-us-status').value;
-            
+            const titulo = document.getElementById('edit-us-titulo').value;
+            const descricao = document.getElementById('edit-us-descricao').value;
+
             try {
                 const response = await fetch(`/api/userstory/${currentUserStoryId}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ prioridade, status })
+                    body: JSON.stringify({ titulo, descricao, prioridade, status })
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (data.success) {
                     closeEditUserStoryModal();
                     showAlert('User Story atualizada com sucesso!', 'success');
