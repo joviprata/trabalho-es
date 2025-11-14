@@ -134,3 +134,4 @@ MeuScrum/
    - Clique em "Plano de Sprint"
    - Preencha objetivo, trabalho, equipe e saída esperada
    - Adicione tarefas conforme necessário
+
