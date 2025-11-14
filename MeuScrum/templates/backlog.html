@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backlog de Produto - MeuScrum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo" onclick="window.location.href='/home'">
+            <h2 onclick="window.location.href='/home'">MeuScrum</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
+                👤
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
+                📝
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
+                🚪
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="content-card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h1>Backlog de Produto</h1>
+                <button class="btn btn-primary" onclick="openNewUserStoryModal()">+ Nova User Story</button>
+            </div>
+            
+            <div id="userstories-container" class="userstories-list">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Nova User Story -->
+    <div id="newUserStoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nova User Story</h2>
+                <button class="modal-close" onclick="closeNewUserStoryModal()">&times;</button>
+            </div>
+            <form id="newUserStoryForm">
+                <div class="form-group">
+                    <label for="us-titulo">Título</label>
+                    <input type="text" id="us-titulo" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="us-descricao">Descrição</label>
+                    <textarea id="us-descricao" class="form-control" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="us-prioridade">Prioridade</label>
+                    <select id="us-prioridade" class="form-control">
+                        <option value="Alta">Alta</option>
+                        <option value="Média" selected>Média</option>
+                        <option value="Baixa">Baixa</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="us-status">Status</label>
+                    <select id="us-status" class="form-control">
+                        <option value="A fazer">A fazer</option>
+                        <option value="Em progresso">Em progresso</option>
+                        <option value="Concluída">Concluída</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Criar User Story</button>
+                    <button type="button" class="btn btn-outline" onclick="closeNewUserStoryModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Editar User Story -->
+    <div id="editUserStoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Editar User Story</h2>
+                <button class="modal-close" onclick="closeEditUserStoryModal()">&times;</button>
+            </div>
+            <form id="editUserStoryForm">
+                <input type="hidden" id="edit-us-id">
+                <div class="form-group">
+                    <label for="edit-us-titulo">Título</label>
+                    <input type="text" id="edit-us-titulo" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-us-descricao">Descrição</label>
+                    <textarea id="edit-us-descricao" class="form-control" rows="4" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="edit-us-prioridade">Prioridade</label>
+                    <select id="edit-us-prioridade" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                    <label for="edit-us-status">Status</label>
+                    <select id="edit-us-status" class="form-control"></select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    <button type="button" class="btn btn-danger" onclick="deleteUserStory()">Excluir</button>
+                    <button type="button" class="btn btn-outline" onclick="closeEditUserStoryModal()">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        let currentBacklogId = {{ bp_id }};
+        let currentUserStoryId = null;
+        
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function loadUserStories() {
+            try {
+                const response = await fetch(`/api/backlog/${currentBacklogId}/userstories`);
+                const data = await response.json();
+                const container = document.getElementById('userstories-container');
+                
+                if (data.userstories && data.userstories.length > 0) {
+                    container.innerHTML = data.userstories.map(us => `
+                        <div class="userstory-card" onclick="openEditUserStoryModal(${us.us_id})">
+                            <div class="userstory-header">
+                                <div class="userstory-title">${us.titulo}</div>
+                                <span class="priority-badge priority-${us.prioridade.toLowerCase()}">${us.prioridade}</span>
+                            </div>
+                            <p style="color: var(--text-light); margin-top: 0.5rem;">${us.descricao}</p>
+                            <div style="display: flex; justify-content: space-between; margin-top: 0.75rem; font-size: 0.9rem;">
+                                <span>Status: ${us.status}</span>
+                                <span>Criado em: ${new Date(us.datacriado).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p style="text-align: center; color: var(--text-light);">Nenhuma user story encontrada. Crie sua primeira user story!</p>';
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar user stories', 'error');
+            }
+        }
+        
+        function openNewUserStoryModal() {
+            document.getElementById('newUserStoryModal').classList.add('active');
+        }
+        
+        function closeNewUserStoryModal() {
+            document.getElementById('newUserStoryModal').classList.remove('active');
+            document.getElementById('newUserStoryForm').reset();
+        }
+        
+        async function openEditUserStoryModal(usId) {
+            currentUserStoryId = usId;
+            try {
+                const response = await fetch(`/api/userstory/${usId}`);
+                const data = await response.json();
+                
+                if (data.userstory) {
+                    const us = data.userstory;
+                    document.getElementById('edit-us-id').value = us.us_id;
+                    document.getElementById('edit-us-titulo').value = us.titulo;
+                    document.getElementById('edit-us-descricao').value = us.descricao;
+                    
+                    const prioridadeSelect = document.getElementById('edit-us-prioridade');
+                    prioridadeSelect.innerHTML = `
+                        <option value="Alta" ${us.prioridade === 'Alta' ? 'selected' : ''}>Alta</option>
+                        <option value="Média" ${us.prioridade === 'Média' ? 'selected' : ''}>Média</option>
+                        <option value="Baixa" ${us.prioridade === 'Baixa' ? 'selected' : ''}>Baixa</option>
+                    `;
+                    
+                    const statusSelect = document.getElementById('edit-us-status');
+                    statusSelect.innerHTML = `
+                        <option value="A fazer" ${us.status === 'A fazer' ? 'selected' : ''}>A fazer</option>
+                        <option value="Em progresso" ${us.status === 'Em progresso' ? 'selected' : ''}>Em progresso</option>
+                        <option value="Concluída" ${us.status === 'Concluída' ? 'selected' : ''}>Concluída</option>
+                    `;
+                    
+                    document.getElementById('editUserStoryModal').classList.add('active');
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar user story', 'error');
+            }
+        }
+        
+        function closeEditUserStoryModal() {
+            document.getElementById('editUserStoryModal').classList.remove('active');
+            currentUserStoryId = null;
+        }
+        
+        document.getElementById('newUserStoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titulo = document.getElementById('us-titulo').value;
+            const descricao = document.getElementById('us-descricao').value;
+            const prioridade = document.getElementById('us-prioridade').value;
+            const status = document.getElementById('us-status').value;
+            
+            try {
+                const response = await fetch('/api/userstory', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ backlogprod: currentBacklogId, titulo, descricao, prioridade, status })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeNewUserStoryModal();
+                    showAlert('User Story criada com sucesso!', 'success');
+                    loadUserStories();
+                } else {
+                    showAlert(data.message || 'Erro ao criar user story', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        });
+        
+        document.getElementById('editUserStoryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const prioridade = document.getElementById('edit-us-prioridade').value;
+            const status = document.getElementById('edit-us-status').value;
+            
+            try {
+                const response = await fetch(`/api/userstory/${currentUserStoryId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ prioridade, status })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeEditUserStoryModal();
+                    showAlert('User Story atualizada com sucesso!', 'success');
+                    loadUserStories();
+                } else {
+                    showAlert(data.message || 'Erro ao atualizar user story', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        });
+        
+        async function deleteUserStory() {
+            if (!confirm('Tem certeza que deseja excluir esta user story?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/userstory/${currentUserStoryId}`, {
+                    method: 'DELETE'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeEditUserStoryModal();
+                    showAlert('User Story excluída com sucesso!', 'success');
+                    loadUserStories();
+                } else {
+                    showAlert(data.message || 'Erro ao excluir user story', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        }
+        
+        document.getElementById('newUserStoryModal').addEventListener('click', (e) => {
+            if (e.target.id === 'newUserStoryModal') {
+                closeNewUserStoryModal();
+            }
+        });
+        
+        document.getElementById('editUserStoryModal').addEventListener('click', (e) => {
+            if (e.target.id === 'editUserStoryModal') {
+                closeEditUserStoryModal();
+            }
+        });
+        
+        loadUserStories();
+    </script>
+</body>
+</html>
+

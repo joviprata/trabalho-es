@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurações - MeuScrum</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="header">
+        <div class="header-logo">
+            <img src="{{ url_for('static', filename='Imagens/logo.png') }}" alt="MeuScrum Logo" onclick="window.location.href='/home'">
+            <h2 onclick="window.location.href='/home'">MeuScrum</h2>
+        </div>
+        <div class="header-actions">
+            <button class="btn-icon" onclick="window.location.href='/configuracoes'" title="Configurações">
+                👤
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/home'" title="Home">
+                📝
+            </button>
+            <button class="btn-icon" onclick="window.location.href='/logout'" title="Sair">
+                🚪
+            </button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div id="alert-container"></div>
+        
+        <div class="content-card">
+            <h1>Configurações do Usuário</h1>
+            
+            <form id="userSettingsForm" style="margin-top: 2rem;">
+                <div class="form-group">
+                    <label for="user-cpf">CPF</label>
+                    <input type="text" id="user-cpf" class="form-control" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-nome">Nome</label>
+                    <input type="text" id="user-nome" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-email">Email</label>
+                    <input type="email" id="user-email" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="user-senha">Nova Senha (deixe em branco para não alterar)</label>
+                    <input type="password" id="user-senha" class="form-control" placeholder="••••••••">
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                    <button type="button" class="btn btn-outline" onclick="window.location.href='/home'">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+        function showAlert(message, type = 'info') {
+            const container = document.getElementById('alert-container');
+            container.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                container.innerHTML = '';
+            }, 5000);
+        }
+        
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/usuario/atual');
+                const data = await response.json();
+                
+                if (data.user) {
+                    document.getElementById('user-cpf').value = data.user.cpf || '';
+                    document.getElementById('user-nome').value = data.user.nome || '';
+                    document.getElementById('user-email').value = data.user.email || '';
+                }
+            } catch (error) {
+                showAlert('Erro ao carregar dados do usuário', 'error');
+            }
+        }
+        
+        document.getElementById('userSettingsForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('user-nome').value;
+            const email = document.getElementById('user-email').value;
+            const senha = document.getElementById('user-senha').value;
+            
+            const updateData = { nome, email };
+            if (senha) {
+                updateData.senha = senha;
+            }
+            
+            try {
+                const response = await fetch('/api/usuario/atualizar', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(updateData)
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showAlert('Dados atualizados com sucesso!', 'success');
+                    if (data.user) {
+                        document.getElementById('user-cpf').value = data.user.cpf || '';
+                        document.getElementById('user-nome').value = data.user.nome || '';
+                        document.getElementById('user-email').value = data.user.email || '';
+                        document.getElementById('user-senha').value = '';
+                    }
+                } else {
+                    showAlert(data.message || 'Erro ao atualizar dados', 'error');
+                }
+            } catch (error) {
+                showAlert('Erro ao conectar com o servidor', 'error');
+            }
+        });
+        
+        // We need to add an endpoint to get current user data
+        // For now, let's try to load it on page load
+        loadUserData();
+    </script>
+</body>
+</html>
+
